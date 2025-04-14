@@ -300,11 +300,13 @@ class PatientController
         }
 
         if (isset($data['personalNumber'])) {
-            $patient->personal_number = SecurityUtils::sanitizeInput($data['personalNumber']);
+            $patient->personal_number = empty($data['personalNumber']) ?
+                null : SecurityUtils::sanitizeInput($data['personalNumber']);
         }
 
+        // Handle date of birth - set to NULL if empty
         if (isset($data['dateOfBirth'])) {
-            $patient->date_of_birth = $data['dateOfBirth'];
+            $patient->date_of_birth = empty($data['dateOfBirth']) ? null : $data['dateOfBirth'];
         }
 
         if (isset($data['gender'])) {
@@ -313,41 +315,50 @@ class PatientController
 
         // Contact information
         if (isset($data['email'])) {
-            $patient->email = SecurityUtils::sanitizeInput($data['email']);
+            $patient->email = empty($data['email']) ?
+                null : SecurityUtils::sanitizeInput($data['email']);
         }
 
         if (isset($data['phone'])) {
-            $patient->phone = SecurityUtils::sanitizeInput($data['phone']);
+            $patient->phone = empty($data['phone']) ?
+                null : SecurityUtils::sanitizeInput($data['phone']);
         }
 
         if (isset($data['address'])) {
-            $patient->address = SecurityUtils::sanitizeInput($data['address']);
+            $patient->address = empty($data['address']) ?
+                null : SecurityUtils::sanitizeInput($data['address']);
         }
 
         if (isset($data['postalCode'])) {
-            $patient->postal_code = SecurityUtils::sanitizeInput($data['postalCode']);
+            $patient->postal_code = empty($data['postalCode']) ?
+                null : SecurityUtils::sanitizeInput($data['postalCode']);
         }
 
         if (isset($data['city'])) {
-            $patient->city = SecurityUtils::sanitizeInput($data['city']);
+            $patient->city = empty($data['city']) ?
+                null : SecurityUtils::sanitizeInput($data['city']);
         }
 
         if (isset($data['country'])) {
-            $patient->country = SecurityUtils::sanitizeInput($data['country']);
+            $patient->country = empty($data['country']) ?
+                null : SecurityUtils::sanitizeInput($data['country']);
         }
 
         // Emergency contact
         if (isset($data['emergencyContactName'])) {
-            $patient->emergency_contact_name = SecurityUtils::sanitizeInput($data['emergencyContactName']);
+            $patient->emergency_contact_name = empty($data['emergencyContactName']) ?
+                null : SecurityUtils::sanitizeInput($data['emergencyContactName']);
         }
 
         if (isset($data['emergencyContactPhone'])) {
-            $patient->emergency_contact_phone = SecurityUtils::sanitizeInput($data['emergencyContactPhone']);
+            $patient->emergency_contact_phone = empty($data['emergencyContactPhone']) ?
+                null : SecurityUtils::sanitizeInput($data['emergencyContactPhone']);
         }
 
         // Notes
         if (isset($data['notes'])) {
-            $patient->notes = SecurityUtils::sanitizeInput($data['notes']);
+            $patient->notes = empty($data['notes']) ?
+                null : SecurityUtils::sanitizeInput($data['notes']);
         }
 
         // Status
