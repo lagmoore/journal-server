@@ -25,6 +25,16 @@ class Journal extends Model
         'content',
         'category',
         'status',
+        'entry_type',
+        'medication_name',
+        'medication_dose',
+        'medication_time',
+        'test_type',
+        'test_method',
+        'test_result',
+        'positive_substances',
+        'incident_severity',
+        'incident_details',
         'created_by',
         'updated_by',
     ];
@@ -37,6 +47,7 @@ class Journal extends Model
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'medication_time' => 'datetime',
     ];
     
     /**
@@ -61,5 +72,71 @@ class Journal extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    
+    /**
+     * Scope a query to filter by entry type.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $type
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeOfType($query, $type)
+    {
+        return $query->where('entry_type', $type);
+    }
+    
+    /**
+     * Check if this is a medication entry
+     *
+     * @return bool
+     */
+    public function isMedication(): bool
+    {
+        return $this->entry_type === 'medication';
+    }
+    
+    /**
+     * Check if this is a drug test entry
+     *
+     * @return bool
+     */
+    public function isDrugTest(): bool
+    {
+        return $this->entry_type === 'drug_test';
+    }
+    
+    /**
+     * Check if this is an incident entry
+     *
+     * @return bool
+     */
+    public function isIncident(): bool
+    {
+        return $this->entry_type === 'incident';
+    }
+    
+    /**
+     * Check if this is a standard note entry
+     *
+     * @return bool
+     */
+    public function isNote(): bool
+    {
+        return $this->entry_type === 'note';
+    }
+    
+    /**
+     * Get array of positive substances (if drug test)
+     *
+     * @return array
+     */
+    public function getPositiveSubstancesArray(): array
+    {
+        if (!$this->positive_substances) {
+            return [];
+        }
+        
+        return json_decode($this->positive_substances, true) ?? [];
     }
 }

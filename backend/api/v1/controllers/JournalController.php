@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Vyper\Api\V1\Models\Journal;
 use Vyper\Api\V1\Models\Patient;
 use Vyper\Api\V1\Models\User;
+use Vyper\Api\V1\Models\Medication;
 use Vyper\Api\V1\Utils\ResponseUtils;
 use Vyper\Api\V1\Utils\SecurityUtils;
 use Vyper\Helpers;
@@ -26,6 +27,7 @@ class JournalController
         $params = $request->getQueryParams();
         $status = $params['status'] ?? 'all';
         $category = $params['category'] ?? 'all';
+        $entryType = $params['entryType'] ?? 'all';
         $patientId = $params['patientId'] ?? 'all';
         $sortBy = $params['sortBy'] ?? 'newest';
         $search = $params['search'] ?? '';
@@ -45,6 +47,11 @@ class JournalController
         if ($category !== 'all') {
             $query->where('category', $category);
         }
+        
+        // Apply entry type filter
+        if ($entryType !== 'all') {
+            $query->where('entry_type', $entryType);
+        }
 
         // Apply patient filter
         if ($patientId !== 'all') {
@@ -55,7 +62,8 @@ class JournalController
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'LIKE', "%$search%")
-                    ->orWhere('content', 'LIKE', "%$search%");
+                    ->orWhere('content', 'LIKE', "%$search%")
+                    ->orWhere('medication_name', 'LIKE', "%$search%");
             });
         }
 
@@ -111,11 +119,9 @@ class JournalController
         $params = $request->getQueryParams();
         $status = $params['status'] ?? 'all';
         $category = $params['category'] ?? 'all';
+        $entryType = $params['entryType'] ?? 'all';
         $sortBy = $params['sortBy'] ?? 'newest';
         $search = $params['search'] ?? '';
-
-        // Get current user ID for permissions
-        $userId = $request->getAttribute('userId');
 
         // Start with a base query for patient journals
         $query = Journal::where('patient_id', $patientId);
@@ -129,12 +135,18 @@ class JournalController
         if ($category !== 'all') {
             $query->where('category', $category);
         }
+        
+        // Apply entry type filter
+        if ($entryType !== 'all') {
+            $query->where('entry_type', $entryType);
+        }
 
         // Apply search filter if provided
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'LIKE', "%$search%")
-                    ->orWhere('content', 'LIKE', "%$search%");
+                    ->orWhere('content', 'LIKE', "%$search%")
+                    ->orWhere('medication_name', 'LIKE', "%$search%");
             });
         }
 
@@ -155,16 +167,39 @@ class JournalController
 
         // Get patient journals
         $journals = $query->get();
+        
+        // Get patient medications
+        $medications = Medication::where('patient_id', $patientId)
+                                 ->orderBy('name')
+                                 ->get();
 
         // Transform data
         $journalData = [];
         foreach ($journals as $journal) {
             $journalData[] = $this->transformJournal($journal);
         }
+        
+        // Transform medications
+        $medicationData = [];
+        foreach ($medications as $medication) {
+            $medicationData[] = [
+                'id' => $medication->id,
+                'name' => $medication->name,
+                'standardDose' => $medication->standard_dose,
+                'frequency' => $medication->frequency,
+                'startDate' => $medication->start_date,
+                'endDate' => $medication->end_date,
+                'instructions' => $medication->instructions,
+                'isActive' => $medication->isActive(),
+                'createdAt' => $medication->created_at,
+                'updatedAt' => $medication->updated_at
+            ];
+        }
 
         return ResponseUtils::successResponse($response, [
             'success' => true,
             'journals' => $journalData,
+            'medications' => $medicationData,
             'patient' => [
                 'id' => $patient->id,
                 'firstName' => $patient->first_name,
@@ -185,13 +220,6 @@ class JournalController
         $data = $request->getParsedBody();
         $userId = $request->getAttribute('userId');
 
-        // Validate input
-        $errors = $this->validateJournalData($data);
-
-        if (!empty($errors)) {
-            return ResponseUtils::validationErrorResponse($response, $errors);
-        }
-
         // Verify patient exists
         if (!isset($data['patientId']) || empty($data['patientId'])) {
             return ResponseUtils::errorResponse($response, 'Patient ID is required', 400);
@@ -202,13 +230,33 @@ class JournalController
             return ResponseUtils::errorResponse($response, 'Patient not found', 404);
         }
 
+        // Determine entry type and validate
+        $entryType = $data['entryType'] ?? 'note';
+        $validationErrors = $this->validateJournalData($data, $entryType);
+
+        if (!empty($validationErrors)) {
+            return ResponseUtils::validationErrorResponse($response, $validationErrors);
+        }
+
         // Create journal
         $journal = new Journal();
         $journal->patient_id = $data['patientId'];
         $journal->created_by = $userId;
         $journal->status = $data['status'] ?? 'draft';
+        $journal->entry_type = $entryType;
 
+        // Set common fields
         $this->mapJournalData($journal, $data);
+        
+        // Set type-specific fields
+        if ($entryType === 'medication') {
+            $this->mapMedicationData($journal, $data);
+        } elseif ($entryType === 'drug_test') {
+            $this->mapDrugTestData($journal, $data);
+        } elseif ($entryType === 'incident') {
+            $this->mapIncidentData($journal, $data);
+        }
+        
         $journal->created_at = Helpers::now();
         $journal->save();
 
@@ -239,11 +287,12 @@ class JournalController
             return ResponseUtils::errorResponse($response, 'Patient not found', 404);
         }
 
-        // Validate input
-        $errors = $this->validateJournalData($data);
+        // Determine entry type and validate
+        $entryType = $data['entryType'] ?? 'note';
+        $validationErrors = $this->validateJournalData($data, $entryType);
 
-        if (!empty($errors)) {
-            return ResponseUtils::validationErrorResponse($response, $errors);
+        if (!empty($validationErrors)) {
+            return ResponseUtils::validationErrorResponse($response, $validationErrors);
         }
 
         // Create journal
@@ -251,8 +300,20 @@ class JournalController
         $journal->patient_id = $patientId;
         $journal->created_by = $userId;
         $journal->status = $data['status'] ?? 'draft';
-
+        $journal->entry_type = $entryType;
+        
+        // Set common fields
         $this->mapJournalData($journal, $data);
+        
+        // Set type-specific fields
+        if ($entryType === 'medication') {
+            $this->mapMedicationData($journal, $data);
+        } elseif ($entryType === 'drug_test') {
+            $this->mapDrugTestData($journal, $data);
+        } elseif ($entryType === 'incident') {
+            $this->mapIncidentData($journal, $data);
+        }
+        
         $journal->created_at = Helpers::now();
         $journal->save();
 
@@ -307,15 +368,26 @@ class JournalController
             return ResponseUtils::errorResponse($response, 'Journal not found', 404);
         }
 
-        // Validate input
-        $errors = $this->validateJournalData($data, false);
+        // Validate input based on entry type
+        $entryType = $journal->entry_type;
+        $validationErrors = $this->validateJournalData($data, $entryType, false);
 
-        if (!empty($errors)) {
-            return ResponseUtils::validationErrorResponse($response, $errors);
+        if (!empty($validationErrors)) {
+            return ResponseUtils::validationErrorResponse($response, $validationErrors);
         }
 
-        // Update journal
+        // Update common fields
         $this->mapJournalData($journal, $data);
+        
+        // Update type-specific fields
+        if ($entryType === 'medication') {
+            $this->mapMedicationData($journal, $data);
+        } elseif ($entryType === 'drug_test') {
+            $this->mapDrugTestData($journal, $data);
+        } elseif ($entryType === 'incident') {
+            $this->mapIncidentData($journal, $data);
+        }
+        
         $journal->updated_by = $userId;
         $journal->updated_at = Helpers::now();
         $journal->save();
@@ -364,23 +436,76 @@ class JournalController
     }
 
     /**
-     * Validate journal data
+     * Validate journal data based on entry type
      *
      * @param array $data Journal data
+     * @param string $entryType Entry type
      * @param bool $isCreating Whether this is a create operation
      * @return array Validation errors
      */
-    private function validateJournalData(array $data, bool $isCreating = true): array
+    private function validateJournalData(array $data, string $entryType, bool $isCreating = true): array
     {
         $errors = [];
 
-        // Required fields
+        // Common validation for all entry types
         if (!isset($data['title']) || empty($data['title'])) {
             $errors['title'] = 'Title is required';
         }
 
-        if (!isset($data['content']) || empty($data['content'])) {
-            $errors['content'] = 'Content is required';
+        // Entry type specific validation
+        switch ($entryType) {
+            case 'note':
+                if (!isset($data['content']) || empty($data['content'])) {
+                    $errors['content'] = 'Content is required';
+                }
+                break;
+                
+            case 'medication':
+                if (!isset($data['medicationName']) || empty($data['medicationName'])) {
+                    $errors['medicationName'] = 'Medication name is required';
+                }
+                
+                if (!isset($data['medicationDose']) || empty($data['medicationDose'])) {
+                    $errors['medicationDose'] = 'Medication dose is required';
+                }
+                
+                if (!isset($data['medicationTime']) || empty($data['medicationTime'])) {
+                    $errors['medicationTime'] = 'Medication time is required';
+                }
+                break;
+                
+            case 'drug_test':
+                if (!isset($data['testType']) || empty($data['testType'])) {
+                    $errors['testType'] = 'Test type is required';
+                }
+                
+                if (!isset($data['testMethod']) || empty($data['testMethod'])) {
+                    $errors['testMethod'] = 'Test method is required';
+                }
+                
+                if (!isset($data['testResult']) || empty($data['testResult'])) {
+                    $errors['testResult'] = 'Test result is required';
+                }
+                
+                // If positive result and not breath test, require substances
+                if (isset($data['testResult']) && 
+                    $data['testResult'] === 'positive' && 
+                    isset($data['testMethod']) && 
+                    $data['testMethod'] !== 'utandning' && 
+                    empty($data['positiveSubstances'])) {
+                    $errors['positiveSubstances'] = 'Positive substances are required for positive non-breath test';
+                }
+                break;
+                
+            case 'incident':
+                if (!isset($data['incidentSeverity']) || empty($data['incidentSeverity'])) {
+                    $errors['incidentSeverity'] = 'Incident severity is required';
+                }
+                
+                if (!isset($data['incidentDetails']) || empty($data['incidentDetails'])) {
+                    $errors['incidentDetails'] = 'Incident details are required';
+                }
+                break;
         }
 
         // Validate status if provided
@@ -395,7 +520,7 @@ class JournalController
     }
 
     /**
-     * Map request data to journal model
+     * Map common journal data to model
      *
      * @param Journal $journal Journal model
      * @param array $data Request data
@@ -420,6 +545,72 @@ class JournalController
             $journal->status = $data['status'];
         }
     }
+    
+    /**
+     * Map medication data to journal model
+     *
+     * @param Journal $journal Journal model
+     * @param array $data Request data
+     */
+    private function mapMedicationData(Journal $journal, array $data): void
+    {
+        if (isset($data['medicationName'])) {
+            $journal->medication_name = SecurityUtils::sanitizeInput($data['medicationName']);
+        }
+        
+        if (isset($data['medicationDose'])) {
+            $journal->medication_dose = SecurityUtils::sanitizeInput($data['medicationDose']);
+        }
+        
+        if (isset($data['medicationTime'])) {
+            $journal->medication_time = $data['medicationTime'];
+        }
+    }
+    
+    /**
+     * Map drug test data to journal model
+     *
+     * @param Journal $journal Journal model
+     * @param array $data Request data
+     */
+    private function mapDrugTestData(Journal $journal, array $data): void
+    {
+        if (isset($data['testType'])) {
+            $journal->test_type = SecurityUtils::sanitizeInput($data['testType']);
+        }
+        
+        if (isset($data['testMethod'])) {
+            $journal->test_method = SecurityUtils::sanitizeInput($data['testMethod']);
+        }
+        
+        if (isset($data['testResult'])) {
+            $journal->test_result = $data['testResult'];
+        }
+        
+        if (isset($data['positiveSubstances'])) {
+            // Store as JSON string
+            $journal->positive_substances = is_array($data['positiveSubstances']) 
+                ? json_encode($data['positiveSubstances']) 
+                : $data['positiveSubstances'];
+        }
+    }
+    
+    /**
+     * Map incident data to journal model
+     *
+     * @param Journal $journal Journal model
+     * @param array $data Request data
+     */
+    private function mapIncidentData(Journal $journal, array $data): void
+    {
+        if (isset($data['incidentSeverity'])) {
+            $journal->incident_severity = SecurityUtils::sanitizeInput($data['incidentSeverity']);
+        }
+        
+        if (isset($data['incidentDetails'])) {
+            $journal->incident_details = SecurityUtils::sanitizeInput($data['incidentDetails']);
+        }
+    }
 
     /**
      * Transform journal model to API response format
@@ -440,13 +631,15 @@ class JournalController
             $updatedByName = $updatedBy ? $updatedBy->full_name : 'Unknown';
         }
 
-        return [
+        // Base journal data
+        $journalData = [
             'id' => $journal->id,
             'patientId' => $journal->patient_id,
             'title' => $journal->title,
             'content' => $journal->content,
             'category' => $journal->category,
             'status' => $journal->status,
+            'entryType' => $journal->entry_type,
             'createdBy' => $journal->created_by,
             'createdByName' => $createdByName,
             'updatedBy' => $journal->updated_by,
@@ -454,5 +647,28 @@ class JournalController
             'createdAt' => $journal->created_at,
             'updatedAt' => $journal->updated_at
         ];
+        
+        // Add type-specific data
+        switch ($journal->entry_type) {
+            case 'medication':
+                $journalData['medicationName'] = $journal->medication_name;
+                $journalData['medicationDose'] = $journal->medication_dose;
+                $journalData['medicationTime'] = $journal->medication_time;
+                break;
+                
+            case 'drug_test':
+                $journalData['testType'] = $journal->test_type;
+                $journalData['testMethod'] = $journal->test_method;
+                $journalData['testResult'] = $journal->test_result;
+                $journalData['positiveSubstances'] = $journal->getPositiveSubstancesArray();
+                break;
+                
+            case 'incident':
+                $journalData['incidentSeverity'] = $journal->incident_severity;
+                $journalData['incidentDetails'] = $journal->incident_details;
+                break;
+        }
+
+        return $journalData;
     }
 }

@@ -77,12 +77,22 @@ $app->group('/api', function ($group) {
             $group->get('/patients/{id}/journals', '\Vyper\Api\V1\Controllers\JournalController:getPatientJournals');
             $group->post('/patients/{id}/journals', '\Vyper\Api\V1\Controllers\JournalController:createPatientJournal');
 
+            // Patient medications
+            $group->get('/patients/{id}/medications', '\Vyper\Api\V1\Controllers\MedicationController:getPatientMedications');
+            $group->get('/patients/{id}/medications/active', '\Vyper\Api\V1\Controllers\MedicationController:getPatientActiveMedications');
+            $group->post('/patients/{id}/medications', '\Vyper\Api\V1\Controllers\MedicationController:createMedication');
+
             // Journal routes
             $group->get('/journals', '\Vyper\Api\V1\Controllers\JournalController:getAllJournals');
             $group->post('/journals', '\Vyper\Api\V1\Controllers\JournalController:createJournal');
             $group->get('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:getJournalById');
             $group->put('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:updateJournal');
             $group->delete('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:deleteJournal');
+
+            // Medication routes
+            $group->get('/medications/{id}', '\Vyper\Api\V1\Controllers\MedicationController:getMedicationById');
+            $group->put('/medications/{id}', '\Vyper\Api\V1\Controllers\MedicationController:updateMedication');
+            $group->delete('/medications/{id}', '\Vyper\Api\V1\Controllers\MedicationController:deleteMedication');
 
             // Economy routes
             $group->get('/economy', '\Vyper\Api\V1\Controllers\EconomyController:getYearlyEconomyData');
