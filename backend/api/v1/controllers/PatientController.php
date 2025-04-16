@@ -290,7 +290,7 @@ class PatientController
      */
     private function mapPatientData(Patient $patient, array $data): void
     {
-        // Map basic fields
+        // Basic personal information
         if (isset($data['firstName'])) {
             $patient->first_name = SecurityUtils::sanitizeInput($data['firstName']);
         }
@@ -355,6 +355,64 @@ class PatientController
                 null : SecurityUtils::sanitizeInput($data['emergencyContactPhone']);
         }
 
+        // Care information
+        if (isset($data['admissionDate'])) {
+            $patient->admission_date = empty($data['admissionDate']) ? null : $data['admissionDate'];
+        }
+
+        if (isset($data['expectedDischargeDate'])) {
+            $patient->expected_discharge_date = empty($data['expectedDischargeDate']) ? null : $data['expectedDischargeDate'];
+        }
+
+        if (isset($data['actualDischargeDate'])) {
+            $patient->actual_discharge_date = empty($data['actualDischargeDate']) ? null : $data['actualDischargeDate'];
+        }
+
+        if (isset($data['dailyCost'])) {
+            $patient->daily_cost = empty($data['dailyCost']) ? null : $data['dailyCost'];
+        }
+
+        if (isset($data['agreement'])) {
+            $patient->agreement = empty($data['agreement']) ?
+                null : SecurityUtils::sanitizeInput($data['agreement']);
+        }
+
+        // Important note
+        if (isset($data['importantNote'])) {
+            $patient->important_note = empty($data['importantNote']) ?
+                null : SecurityUtils::sanitizeInput($data['importantNote']);
+        }
+
+        if (isset($data['importantNoteType'])) {
+            $patient->important_note_type = empty($data['importantNoteType']) ? null : $data['importantNoteType'];
+        }
+
+        // Caseworker information
+        if (isset($data['caseworkerFirstName'])) {
+            $patient->caseworker_first_name = empty($data['caseworkerFirstName']) ?
+                null : SecurityUtils::sanitizeInput($data['caseworkerFirstName']);
+        }
+
+        if (isset($data['caseworkerLastName'])) {
+            $patient->caseworker_last_name = empty($data['caseworkerLastName']) ?
+                null : SecurityUtils::sanitizeInput($data['caseworkerLastName']);
+        }
+
+        if (isset($data['caseworkerMunicipality'])) {
+            $patient->caseworker_municipality = empty($data['caseworkerMunicipality']) ?
+                null : SecurityUtils::sanitizeInput($data['caseworkerMunicipality']);
+        }
+
+        if (isset($data['caseworkerPhone'])) {
+            $patient->caseworker_phone = empty($data['caseworkerPhone']) ?
+                null : SecurityUtils::sanitizeInput($data['caseworkerPhone']);
+        }
+
+        if (isset($data['caseworkerEmail'])) {
+            $patient->caseworker_email = empty($data['caseworkerEmail']) ?
+                null : SecurityUtils::sanitizeInput($data['caseworkerEmail']);
+        }
+
         // Notes
         if (isset($data['notes'])) {
             $patient->notes = empty($data['notes']) ?
@@ -377,19 +435,46 @@ class PatientController
     {
         return [
             'id' => $patient->id,
+            // Personal information
             'firstName' => $patient->first_name,
             'lastName' => $patient->last_name,
             'personalNumber' => $patient->personal_number,
             'dateOfBirth' => $patient->date_of_birth,
             'gender' => $patient->gender,
+
+            // Contact information
             'email' => $patient->email,
             'phone' => $patient->phone,
             'address' => $patient->address,
             'postalCode' => $patient->postal_code,
             'city' => $patient->city,
             'country' => $patient->country,
+
+            // Emergency contact
             'emergencyContactName' => $patient->emergency_contact_name,
             'emergencyContactPhone' => $patient->emergency_contact_phone,
+
+            // Care information
+            'admissionDate' => $patient->admission_date,
+            'expectedDischargeDate' => $patient->expected_discharge_date,
+            'actualDischargeDate' => $patient->actual_discharge_date,
+            'dailyCost' => $patient->daily_cost,
+            'agreement' => $patient->agreement,
+
+            // Important note
+            'importantNote' => $patient->important_note,
+            'importantNoteType' => $patient->important_note_type,
+            'hasImportantNote' => !empty($patient->important_note),
+
+            // Caseworker information
+            'caseworkerFirstName' => $patient->caseworker_first_name,
+            'caseworkerLastName' => $patient->caseworker_last_name,
+            'caseworkerFullName' => $patient->caseworker_full_name,
+            'caseworkerMunicipality' => $patient->caseworker_municipality,
+            'caseworkerPhone' => $patient->caseworker_phone,
+            'caseworkerEmail' => $patient->caseworker_email,
+
+            // Additional information
             'notes' => $patient->notes,
             'isActive' => (bool) $patient->is_active,
             'createdAt' => $patient->created_at,
