@@ -49,7 +49,7 @@ $app->options('/{routes:.+}', function (Request $request, Response $response) {
 
 // Define API routes
 $app->group('/api', function ($group) {
-    
+
     // Unprotected routes
     $group->group('/v1', function ($group) {
         // Auth routes
@@ -58,32 +58,36 @@ $app->group('/api', function ($group) {
         $group->post('/auth/request-password-reset', '\Vyper\Api\V1\Controllers\AuthController:requestPasswordReset');
         $group->post('/auth/reset-password', '\Vyper\Api\V1\Controllers\AuthController:resetPassword');
         $group->post('/auth/logout', '\Vyper\Api\V1\Controllers\AuthController:logout');
-        
+
         // Protected routes (require JWT)
         $group->group('', function ($group) {
             // User routes
             $group->get('/users/me', '\Vyper\Api\V1\Controllers\UserController:getCurrentUser');
             $group->put('/users/me', '\Vyper\Api\V1\Controllers\UserController:updateCurrentUser');
             $group->put('/users/me/password', '\Vyper\Api\V1\Controllers\UserController:updatePassword');
-            
+
             // Patient routes
             $group->get('/patients', '\Vyper\Api\V1\Controllers\PatientController:getAllPatients');
             $group->post('/patients', '\Vyper\Api\V1\Controllers\PatientController:createPatient');
             $group->get('/patients/{id}', '\Vyper\Api\V1\Controllers\PatientController:getPatientById');
             $group->put('/patients/{id}', '\Vyper\Api\V1\Controllers\PatientController:updatePatient');
             $group->delete('/patients/{id}', '\Vyper\Api\V1\Controllers\PatientController:deletePatient');
-            
+
             // Patient journals
             $group->get('/patients/{id}/journals', '\Vyper\Api\V1\Controllers\JournalController:getPatientJournals');
             $group->post('/patients/{id}/journals', '\Vyper\Api\V1\Controllers\JournalController:createPatientJournal');
-            
+
             // Journal routes
             $group->get('/journals', '\Vyper\Api\V1\Controllers\JournalController:getAllJournals');
             $group->post('/journals', '\Vyper\Api\V1\Controllers\JournalController:createJournal');
             $group->get('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:getJournalById');
             $group->put('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:updateJournal');
             $group->delete('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:deleteJournal');
-            
+
+            // Economy routes
+            $group->get('/economy', '\Vyper\Api\V1\Controllers\EconomyController:getYearlyEconomyData');
+            $group->post('/economy', '\Vyper\Api\V1\Controllers\EconomyController:updateEconomyData');
+
             // Admin routes
             $group->group('/admin', function ($group) {
                 $group->get('/users', '\Vyper\Api\V1\Controllers\UserController:getAllUsers');
