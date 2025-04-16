@@ -73,7 +73,7 @@ class Economy extends Model
         $totalIncome = 0;
         
         foreach ($patients as $patient) {
-            if (!$patient->admission_date || !$patient->incomePerDay) {
+            if (!$patient->admission_date || !$patient->income_per_day) {
                 continue;
             }
             
@@ -117,7 +117,7 @@ class Economy extends Model
             $days = $daysInterval->days + 1; // Include both start and end days
             
             // Add to total income
-            $totalIncome += $patient->incomePerDay * $days;
+            $totalIncome += $patient->income_per_day * $days;
         }
         
         return $totalIncome;
