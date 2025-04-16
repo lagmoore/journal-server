@@ -368,8 +368,8 @@ class PatientController
             $patient->actual_discharge_date = empty($data['actualDischargeDate']) ? null : $data['actualDischargeDate'];
         }
 
-        if (isset($data['dailyCost'])) {
-            $patient->daily_cost = empty($data['dailyCost']) ? null : $data['dailyCost'];
+        if (isset($data['incomePerDay'])) {
+            $patient->income_per_day = empty($data['incomePerDay']) ? null : $data['incomePerDay'];
         }
 
         if (isset($data['agreement'])) {
@@ -458,7 +458,7 @@ class PatientController
             'admissionDate' => $patient->admission_date,
             'expectedDischargeDate' => $patient->expected_discharge_date,
             'actualDischargeDate' => $patient->actual_discharge_date,
-            'dailyCost' => $patient->daily_cost,
+            'incomePerDay' => $patient->income_per_day,
             'agreement' => $patient->agreement,
 
             // Important note

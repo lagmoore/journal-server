@@ -43,7 +43,7 @@ class Patient extends Model
         'admission_date',
         'expected_discharge_date',
         'actual_discharge_date',
-        'daily_cost',
+        'income_per_day',
         'agreement',
         
         // Important note with type
@@ -73,7 +73,7 @@ class Patient extends Model
         'admission_date' => 'date',
         'expected_discharge_date' => 'date',
         'actual_discharge_date' => 'date',
-        'daily_cost' => 'decimal:2',
+        'income_per_day' => 'decimal:2',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
