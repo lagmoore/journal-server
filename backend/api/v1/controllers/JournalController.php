@@ -405,6 +405,48 @@ class JournalController
     }
 
     /**
+     * Sign journal (transition from draft to completed)
+     *
+     * @param Request $request PSR-7 request
+     * @param Response $response PSR-7 response
+     * @param array $args Route arguments
+     * @return Response
+     */
+    public function signJournal(Request $request, Response $response, array $args): Response
+    {
+        $journalId = $args['id'];
+        $userId = $request->getAttribute('userId');
+
+        $journal = Journal::find($journalId);
+
+        if (!$journal) {
+            return ResponseUtils::errorResponse($response, 'Journal not found', 404);
+        }
+
+        // Check if journal is already signed
+        if ($journal->status === 'completed') {
+            return ResponseUtils::errorResponse($response, 'Journal is already signed', 400);
+        }
+
+        // Check if journal is archived
+        if ($journal->status === 'archived') {
+            return ResponseUtils::errorResponse($response, 'Archived journals cannot be signed', 400);
+        }
+
+        // Update status to completed (signed)
+        $journal->status = 'completed';
+        $journal->updated_by = $userId;
+        $journal->updated_at = Helpers::now();
+        $journal->save();
+
+        return ResponseUtils::successResponse($response, [
+            'success' => true,
+            'message' => 'Journal signed successfully',
+            'journal' => $this->transformJournal($journal)
+        ]);
+    }
+
+    /**
      * Archive journal (transition from completed to archived)
      *
      * @param Request $request PSR-7 request
