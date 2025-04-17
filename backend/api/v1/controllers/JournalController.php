@@ -368,9 +368,9 @@ class JournalController
             return ResponseUtils::errorResponse($response, 'Journal not found', 404);
         }
 
-        // Prevent updating completed journals (signed entries)
-        if ($journal->status === 'completed') {
-            return ResponseUtils::errorResponse($response, 'Signed journal entries cannot be modified', 403);
+        // Prevent updating completed or archived journals
+        if ($journal->status === 'completed' || $journal->status === 'archived') {
+            return ResponseUtils::errorResponse($response, 'Signed or archived journal entries cannot be modified', 403);
         }
 
         // Validate input based on entry type
@@ -447,7 +447,7 @@ class JournalController
     }
 
     /**
-     * Archive journal (transition from completed to archived)
+     * Archive journal (transition from any status to archived)
      *
      * @param Request $request PSR-7 request
      * @param Response $response PSR-7 response
@@ -541,16 +541,9 @@ class JournalController
     {
         $errors = [];
 
-        // Skip detailed validation for completed journals - only allow content and status changes
-        if (!$isCreating && $currentStatus === 'completed') {
-            // Only validate status if provided
-            if (isset($data['status'])) {
-                $validStatuses = ['completed', 'archived'];
-                if (!in_array($data['status'], $validStatuses)) {
-                    $errors['status'] = 'Signed journals can only be archived, not returned to draft status';
-                }
-            }
-            return $errors;
+        // Skip detailed validation for completed or archived journals - no changes allowed
+        if (!$isCreating && ($currentStatus === 'completed' || $currentStatus === 'archived')) {
+            return ['status' => 'Signed or archived journals cannot be modified'];
         }
 
         // Common validation for all entry types
@@ -558,10 +551,13 @@ class JournalController
             $errors['title'] = 'Title is required';
         }
 
+        // For updates, content validation is less strict since we might only have the current version
+        $requireContent = $isCreating || ($data['content'] ?? null) === null || empty($data['content']);
+
         // Entry type specific validation
         switch ($entryType) {
             case 'note':
-                if (!isset($data['content']) || empty($data['content'])) {
+                if ($requireContent && (!isset($data['content']) || empty($data['content']))) {
                     $errors['content'] = 'Content is required';
                 }
                 break;
@@ -650,13 +646,23 @@ class JournalController
                 return;
             }
 
-            // For draft journals, append new content rather than replacing
+            // For draft journals that already have content, create a versioned entry
+            // with newest content first
             if ($journal->exists && !empty($journal->content)) {
+                // Store the new content
+                $newContent = SecurityUtils::sanitizeInput($data['content']);
+
+                // Format timestamp
                 $timestamp = date('Y-m-d H:i:s');
-                $appendText = "\n\n--- {$timestamp} ---\n" . SecurityUtils::sanitizeInput($data['content']);
-                $journal->content .= $appendText;
+
+                // Create a new versioned content with the new content first,
+                // followed by a timestamp, then the old content
+                $versionedContent = $newContent . "\n\n--- " . $timestamp . " ---\n\n" . $journal->content;
+
+                // Update the journal with versioned content
+                $journal->content = $versionedContent;
             } else {
-                // For new entries, set content directly
+                // For new entries or empty content, set content directly
                 $journal->content = SecurityUtils::sanitizeInput($data['content']);
             }
         }
@@ -671,8 +677,8 @@ class JournalController
 
         if (isset($data['status'])) {
             // Prevent changing from 'completed' status back to 'draft'
-            if ($journal->status === 'completed' && $data['status'] === 'draft') {
-                // Do not allow changing from completed to draft
+            if (($journal->status === 'completed' || $journal->status === 'archived') && $data['status'] === 'draft') {
+                // Do not allow changing from completed/archived to draft
                 return;
             }
 
@@ -689,7 +695,7 @@ class JournalController
     private function mapMedicationData(Journal $journal, array $data): void
     {
         // Only update specific fields if journal is in draft status or is new
-        if ($journal->status !== 'completed') {
+        if ($journal->status === 'draft' || !$journal->exists) {
             if (isset($data['medicationName'])) {
                 $journal->medication_name = SecurityUtils::sanitizeInput($data['medicationName']);
             }
@@ -713,7 +719,7 @@ class JournalController
     private function mapDrugTestData(Journal $journal, array $data): void
     {
         // Only update specific fields if journal is in draft status or is new
-        if ($journal->status !== 'completed') {
+        if ($journal->status === 'draft' || !$journal->exists) {
             if (isset($data['testType'])) {
                 $journal->test_type = SecurityUtils::sanitizeInput($data['testType']);
             }
@@ -744,7 +750,7 @@ class JournalController
     private function mapIncidentData(Journal $journal, array $data): void
     {
         // Only update specific fields if journal is in draft status or is new
-        if ($journal->status !== 'completed') {
+        if ($journal->status === 'draft' || !$journal->exists) {
             if (isset($data['incidentSeverity'])) {
                 $journal->incident_severity = SecurityUtils::sanitizeInput($data['incidentSeverity']);
             }
