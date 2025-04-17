@@ -87,6 +87,7 @@ $app->group('/api', function ($group) {
             $group->post('/journals', '\Vyper\Api\V1\Controllers\JournalController:createJournal');
             $group->get('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:getJournalById');
             $group->put('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:updateJournal');
+            $group->post('/journals/{id}/archive', '\Vyper\Api\V1\Controllers\JournalController:archiveJournal');
             $group->delete('/journals/{id}', '\Vyper\Api\V1\Controllers\JournalController:deleteJournal');
 
             // Medication routes
